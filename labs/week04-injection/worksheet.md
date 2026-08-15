@@ -67,7 +67,7 @@ sqli-parse
 
 **Task 3 — OS command injection (30 min) 🐉 Hit #3.**
 - *Goal:* run an arbitrary command through `/ping`.
-- *Steps:* request `/ping?host=127.0.0.1;id` then `/ping?host=$(whoami)` (URL-encode if needed). Capture the injected command's output.
+- *Steps:* request `/ping?host=127.0.0.1;id` then `/ping?host=127.0.0.1;whoami` (URL-encode if needed). Capture the injected command's output.
 - *Deliverable:* both payloads + screenshot of `id`/`whoami` output + explanation of the `shell=True` flaw (CWE-78).
 
 **Task 4 — Unrestricted upload (25 min) 🐉 Hit #4.**
