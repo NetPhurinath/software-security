@@ -417,6 +417,7 @@ SIMS = {
     "sqli-parse": "How concatenation changes the SQL parse tree (Week 4)",
     "aes-modes": "Why ECB leaks a picture, and what CBC's XOR costs (Week 3)",
     "ecdsa-malleability": "One signature, two spellings: (r, s) and (r, n − s) (Cryptography, Week 11)",
+    "mac-extend": "Forge the admin cookie — without the secret key (Cryptography, Week 3)",
     "iam-evaluation": "How AWS actually evaluates a request (Cloud Infrastructure, Lesson 7)",
     "jwt-forge": "Editing a JWT: base64url is encoding, not sealing (Week 6)",
     "stack-frame": "What a stack canary detects and what FORTIFY_SOURCE prevents (Week 11)",
@@ -449,6 +450,7 @@ SIM_SOURCE = {
     # names. "security-cryptography" and "cloud-infrastructure-security" 404:
     # the live site is /learn/cryptography and /learn/cloud-security.
     "ecdsa-malleability": ("cryptography", "week11-signatures-zkp"),
+    "mac-extend": ("cryptography", "week03-macs"),
     "iam-evaluation": ("cloud-security", "lesson07-iam-policy-evaluation"),
     "jwt-forge": ("software-security", "week06-authn-authz"),
     "stack-frame": ("software-security", "week11-memory-safety-exploitation"),
