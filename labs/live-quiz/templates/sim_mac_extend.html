@@ -3,12 +3,18 @@
 <title>{{ title }}</title><link rel="stylesheet" href="/static/sim/sim.css"></head>
 <body>
 <h1>Forge the admin cookie — without the secret key</h1>
-<p class="lead">A server signs cookies as <code>H(secret || data)</code>. You've intercepted one
-cookie (the secret is never sent). Can you turn <code>admin=false</code> into
-<code>admin=true</code> and still pass the MAC check — without ever learning the secret?</p>
+<p class="lead">A server signs data as <code>H(secret || data)</code>. You've intercepted one
+message (the secret is never sent). Can you extend it into something the server never signed
+— and still pass the MAC check — without ever learning the secret?</p>
+
+<div class="preset" id="presets">
+  <button type="button" class="preset-btn" data-preset="0">Admin cookie</button>
+  <button type="button" class="preset-btn" data-preset="1">File-share permission</button>
+  <button type="button" class="preset-btn" data-preset="2">Order total</button>
+</div>
 
 <div class="card">
-  <p class="hint">The intercepted cookie (this is all an attacker ever sees on the wire):</p>
+  <p class="hint">The intercepted message (this is all an attacker ever sees on the wire):</p>
   <div class="q" id="intercepted"></div>
 </div>
 

@@ -65,19 +65,47 @@ function glueToDisplay(glueBytes) {
   return glueBytes.map(b => "\\x" + b.toString(16).padStart(2, "0")).join("");
 }
 
-// --- Scenario setup -------------------------------------------------------
-// The secret is real to the simulation (so Verifier A/B can check the real
-// server-side MAC) but is never shown or used by the attacker's own
-// computation below — only its LENGTH is guessed.
-const SECRET = bytesOf("k3y_" + Math.random().toString(36).slice(2, 6)); // 8 bytes, hidden
-const DATA = "user=alice&admin=false";
-const dataBytes = bytesOf(DATA);
+// --- Scenarios --------------------------------------------------------------
+// Three different systems with the exact same underlying bug. Each secret is
+// real to the simulation (so Verifier A/B can check the real server-side MAC)
+// but is never shown or used by the attacker's own computation below — only
+// its LENGTH is guessed, same as a real attacker would have to.
+const PRESETS = [
+  { label: "Admin cookie", data: "user=alice&admin=false", extension: "&admin=true" },
+  { label: "File-share permission", data: "file=report.pdf&role=viewer", extension: "&role=editor" },
+  { label: "Order total", data: "item=widget&qty=1&price=999", extension: "&price=1" },
+];
 
-const macA = toyhash(SECRET.concat(dataBytes));                 // prefix-MAC: vulnerable
-const macB = toyhash(SECRET.concat(bytesOf(hex(toyhash(dataBytes))))); // H(secret||H(data)): resists
+let SECRET, DATA, dataBytes, macA, macB;
 
-document.getElementById("intercepted").textContent =
-  `data = "${DATA}"\nmac  = ${hex(macA)}   (this is Verifier A's MAC — the one you're attacking)`;
+function loadScenario(preset) {
+  SECRET = bytesOf("k3y_" + Math.random().toString(36).slice(2, 6)); // 8 bytes, hidden
+  DATA = preset.data;
+  dataBytes = bytesOf(DATA);
+  macA = toyhash(SECRET.concat(dataBytes));                              // prefix-MAC: vulnerable
+  macB = toyhash(SECRET.concat(bytesOf(hex(toyhash(dataBytes)))));       // H(secret||H(data)): resists
+
+  document.getElementById("intercepted").textContent =
+    `data = "${DATA}"\nmac  = ${hex(macA)}   (this is Verifier A's MAC — the one you're attacking)`;
+  document.getElementById("extension").value = preset.extension;
+
+  for (const el of document.querySelectorAll(".preset-btn")) {
+    el.setAttribute("aria-pressed", el === document.activeElement ? "true" : el.getAttribute("aria-pressed"));
+  }
+  document.querySelectorAll(".preset-btn").forEach((el, i) => {
+    el.setAttribute("aria-pressed", PRESETS[i] === preset ? "true" : "false");
+  });
+  ["work", "forged", "verdict-a", "verdict-b", "summary"].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = "";
+    if (el.classList.contains("verdict")) el.className = "verdict";
+  });
+  renderLen();
+}
+
+document.querySelectorAll(".preset-btn").forEach(btn => {
+  btn.addEventListener("click", () => loadScenario(PRESETS[Number(btn.dataset.preset)]));
+});
 
 const lenSlider = document.getElementById("guess-len");
 const lenVal = document.getElementById("guess-len-val");
@@ -90,7 +118,6 @@ function renderLen() {
       "different from what you computed — the forgery will fail Verifier A too.";
 }
 lenSlider.addEventListener("input", renderLen);
-renderLen();
 
 document.getElementById("forge-btn").addEventListener("click", () => {
   const guessLen = Number(lenSlider.value);
@@ -115,8 +142,8 @@ document.getElementById("forge-btn").addEventListener("click", () => {
   const realCheckA = toyhash(forgedBytesAsServerSeesIt);
   const verdictA = document.getElementById("verdict-a");
   if (realCheckA === forgedDigest) {
-    verdictA.textContent = "✓ ACCEPTED — the forged cookie is a valid message for this MAC. " +
-      "admin=true, and the secret was never read.";
+    verdictA.textContent = "✓ ACCEPTED — the forged message is valid for this MAC, and the " +
+      "secret was never read.";
     verdictA.className = "verdict bad";
   } else {
     verdictA.textContent = "✗ rejected — length guess was wrong, so the padding (and therefore " +
@@ -150,3 +177,5 @@ document.getElementById("forge-btn").addEventListener("click", () => {
     "The fix nests the hash so the secret gates a step the attacker can never resume from " +
     "the outside — which is the same idea HMAC is built on, just with more structure.";
 });
+
+loadScenario(PRESETS[0]);
