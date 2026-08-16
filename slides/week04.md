@@ -227,7 +227,7 @@ docker run --rm -p 80:80 vulnerables/web-dvwa   # optional extra target (or Juic
 - Proof the payload no longer works
 - **+ Audit the AI / EiPE / Prompt Problem** (see worksheet)
 
-<!-- Set expectations: before AND after code + proof. The AI-resilient tasks are part of the grade. Q6 of this week's quiz asks for their own payload — confirm the current worksheet's exact wording before promising a "personal flag" on stage; check with the team if that's still accurate. -->
+<!-- Set expectations: before AND after code + proof. The AI-resilient tasks are part of the grade. The weekly quiz no longer asks for their payload/flag (that question was dropped — quiz runs before the lab, so it couldn't be answered) — the payload + flag are required in the worksheet's Task 1 and Evidence & Integrity section instead. -->
 
 ---
 
