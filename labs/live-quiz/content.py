@@ -423,6 +423,16 @@ SIMS = {
     "stack-frame": "What a stack canary detects and what FORTIFY_SOURCE prevents (Week 11)",
     "xss-context": "One value, four sinks: why escaping is context-dependent (Week 5)",
     "eop-deck": "Draw a card, tie it to your DFD — no printer needed (Week 1)",
+    "seed-crack": "Crack a key from its real seed — not its assumed one (Cryptography, Week 1)",
+    "hash-crack": "Crack the leaked DB — then watch a salt raise the price (Cryptography, Week 2)",
+    "cbc-bitflip": "Flip your way to admin — without the key (Cryptography, Week 4)",
+    "dh-mitm": "Be the man in the middle — without breaking Diffie-Hellman's math (Cryptography, Week 5)",
+    "padding-oracle": "CBC padding-oracle vs. tag-checked-first AEAD — same leak, closed (Cryptography, Week 6)",
+    "nonce-reuse": "Two ciphertexts, one reused nonce, zero key needed (Cryptography, Week 10)",
+    "cert-bypass": "Would your TLS client have caught the impostor? (Cryptography, Week 12)",
+    "server-can-read": "Who's reading your mail? The server's own log, live (Cryptography, Week 13)",
+    "cred-harvest": "Plain password vs. challenge-response: what ends up in the log (Cryptography, Week 14)",
+    "lamport-reuse": "Forge the admin signature — without ever seeing the key (Cryptography, Week 15)",
 }
 
 # Which unit each simulation belongs to. /sim's own copy says "each one is
@@ -456,6 +466,16 @@ SIM_SOURCE = {
     "stack-frame": ("software-security", "week11-memory-safety-exploitation"),
     "xss-context": ("software-security", "week05-xss-client-side"),
     "eop-deck": ("software-security", "week01-threat-modeling"),
+    "seed-crack": ("cryptography", "week01-intro"),
+    "hash-crack": ("cryptography", "week02-hash"),
+    "cbc-bitflip": ("cryptography", "week04-aes-modes"),
+    "dh-mitm": ("cryptography", "week05-key-exchanges"),
+    "padding-oracle": ("cryptography", "week06-aead"),
+    "nonce-reuse": ("cryptography", "week10-hybrid-encryption"),
+    "cert-bypass": ("cryptography", "week12-secure-transport"),
+    "server-can-read": ("cryptography", "week13-e2e-encryption"),
+    "cred-harvest": ("cryptography", "week14-authentication"),
+    "lamport-reuse": ("cryptography", "week15-pqc"),
 }
 
 
