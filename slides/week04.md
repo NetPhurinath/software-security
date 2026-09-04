@@ -95,6 +95,24 @@ SELECT * FROM users WHERE username = 'alice'--' AND password = '...';
 
 ---
 
+## The fix: parameterize — data stays data
+
+```python
+# concatenation: DB gets ONE finished string, decides grammar AFTER
+"...WHERE username = '" + user + "'"     # user = alice'--  ->  ' breaks out, code
+
+# parameterized: structure parsed and LOCKED first, value bound AFTER
+db.execute("...WHERE username = ? AND password = ?", (user, pw))
+```
+
+- `?` locks the query **structure before the input ever arrives**
+- `alice'--` is then bound as a **value** — it can no longer become SQL grammar
+- Escaping quotes patches symptoms; **this** is the actual fix for SQLi
+
+<!-- THE slide that makes SQLi click — spend time here, it's the one students miss. Draw both on the board. Concatenation: the DB receives one already-joined string and only THEN parses which characters are grammar vs. value, so the user's ' can retroactively become a string-terminator (the break-out they saw in the sim). Parameterized: the driver sends the template WITH the ?-placeholders to the DB and the DB parses+plans the structure FIRST — 'there are exactly two values here' is decided before any user byte is seen — then the values are shipped separately and slotted in as pure data. Because parsing already finished, alice'-- is just a 9-char username that matches no row; the ' and -- are inert. Punch line: parameterization doesn't *clean* the input, it *removes the input's power to change the grammar*. That's why it beats escaping/block-lists, which only try to spot bad characters. ~7 min. -->
+
+---
+
 ## Real-world impact
 
 - **Equifax (2017):** unvalidated HTTP header → Struts RCE (CVE-2017-5638); 147M people, ~$700M settlement
