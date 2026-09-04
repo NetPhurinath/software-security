@@ -2,7 +2,7 @@
 
 > **Course:** Software Security (KOSEN69) · **Week 4**
 > **Aligned:** OWASP 2025 **A05 Injection** · **CWE-89** (SQLi), **CWE-78** (OS command injection), **CWE-434** (unrestricted upload)
-> **Signature game:** 🐉 **SQLi Boss Fight** — each successful injection lands a "hit" on the boss; the boss falls when you dump every credential and land an RCE.
+> **Signature game:** 🐉 **SQLi Warm-up** — each successful injection lands a "hit"; you clear it when you dump every credential and land an RCE.
 
 > ⚠️ **Ethics note:** All payloads here are for the provided sandbox (`vulnerable_app.py`) and your own DVWA/Juice Shop containers **only**. Never test systems you do not own or have written permission to test. Unauthorized injection is a crime under most computer-misuse laws.
 
@@ -58,6 +58,7 @@ sqli-parse
 **Task 1 — Auth bypass via SQLi (25 min) 🐉 Hit #1.**
 - *Goal:* log in as `alice` with **no valid password**.
 - *Steps:* hit `/login?user=alice'--&pw=x`, then `/login?user=x' OR '1'='1'--&pw=x` (the trailing `--` is required: without it, SQL binds `AND` tighter than `OR`, so `... OR '1'='1' AND password='x'` matches no row). Observe the comment in the query at lines 61–63 of `vulnerable_app.py`.
+- *Note — browser vs `curl`:* pasted into a **browser**, the space in `x' OR '1'='1'--` is encoded for you; with **`curl`** an unencoded space silently returns a **blank page (no error)**. Use `curl -G "http://localhost:8080/login" --data-urlencode "user=x' OR '1'='1'--" --data-urlencode "pw=x"` — same `-G --data-urlencode` form for Task 2's `q=`.
 - *Deliverable:* both URLs + screenshot of `Welcome alice` + explain why `--` and `OR '1'='1` work.
 
 **Task 2 — Credential dump via UNION SQLi (30 min) 🐉 Hit #2.**
@@ -66,16 +67,19 @@ sqli-parse
 - *Deliverable:* payload + screenshot of dumped credentials + note on why column count must match.
 
 **Task 3 — OS command injection (30 min) 🐉 Hit #3.**
-- *Goal:* run an arbitrary command through `/ping`.
-- *Steps:* request `/ping?host=127.0.0.1;id` then `/ping?host=$(whoami)` (URL-encode if needed). Capture the injected command's output.
-- *Deliverable:* both payloads + screenshot of `id`/`whoami` output + explanation of the `shell=True` flaw (CWE-78).
+- *Goal:* run an arbitrary command through `/ping`, then read this lab's command-injection flag with it.
+- *Steps:* request `/ping?host=127.0.0.1;id` then `/ping?host=127.0.0.1;whoami` (URL-encode if needed). Capture the injected command's output. Then use the same injection to read the flag file the server keeps at `/flag.txt` (the space needs `--data-urlencode`, see the note on Task 1):
+  ```bash
+  curl -G "http://localhost:8080/ping" --data-urlencode "host=127.0.0.1;cat /flag.txt"
+  ```
+- *Deliverable:* the three payloads + screenshot of the `id`/`whoami` output **and** the `FLAG{...}` from `/flag.txt` + explanation of the `shell=True` flaw (CWE-78).
 
 **Task 4 — Unrestricted upload (25 min) 🐉 Hit #4.**
 - *Goal:* show the upload accepts a dangerous file type with no checks (CWE-434).
-- *Steps:* `GET /upload` (form), then upload a file named `shell.py`. Confirm `saved to /tmp/uploads/shell.py`. Discuss: if `UPLOAD_DIR` were web-served or executed, this is the RCE chain (here the dir is **not** served, so document the missing control rather than claiming auto-RCE).
+- *Steps:* `GET /upload` (form), then upload a file named `shell.py`. Confirm `saved to /tmp/uploads/shell.py`. Via the browser form this just works; via `curl` the file field is named **`f`**: `curl -F "f=@shell.py" "http://localhost:8080/upload"`. Discuss: if `UPLOAD_DIR` were web-served or executed, this is the RCE chain (here the dir is **not** served, so document the missing control rather than claiming auto-RCE).
 - *Deliverable:* upload command/screenshot + 2–3 sentences on why extension allow-listing matters.
 
-**Task 5 — Defend / fix it (35 min) 🛡️ Boss defeated.**
+**Task 5 — Defend / fix it (35 min) 🛡️ Warm-up cleared.**
 - *Goal:* prove `solution_app.py` blocks Tasks 1–4.
 - *Steps:* stop the vulnerable container (`Ctrl-C`), then run the fixed app on the same compose env:
   ```bash
