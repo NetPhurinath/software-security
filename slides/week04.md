@@ -160,6 +160,24 @@ system("ping -c 1 " . $_GET['host']);   // vulnerable
 
 ---
 
+## The fix: no shell — pass an argument vector
+
+```python
+# vulnerable: shell=True -> the OS shell parses the whole string
+subprocess.run("ping -c 1 " + host, shell=True)     # host = 8.8.8.8;cat /flag.txt
+
+# fixed: shell=False + argument array -> no shell, no metacharacters
+subprocess.run(["ping", "-c", "1", host], shell=False)   # + allow-list host
+```
+
+- `shell=True` hands your string to `/bin/sh`, which reads `;` `|` `$()` as **syntax**
+- An **arg vector** runs `ping` directly — `host` is one literal argument, never parsed
+- `8.8.8.8;cat /flag.txt` becomes one impossible "hostname"; the `;` is **inert**
+
+<!-- Same shape as the SQLi fix — separate command from data. shell=True actually spawns `/bin/sh -c "ping -c 1 <yourstring>"`, so sh does the parsing and every metacharacter (; | & $() backtick > <) is live -> command injection. With an argv list there is NO shell in the picture: execve runs the ping binary with argv = ["ping","-c","1",host], the kernel hands ping exactly four arguments, and host is a single opaque string -> ping tries to resolve "8.8.8.8;cat /flag.txt" as a hostname, fails, done. Nothing ever parses the ;. Exact parallel to parameterized queries: the structure (command + fixed flags) is fixed in code, the data (host) rides in a separate slot no interpreter re-parses. Add an allow-list on host as defense in depth. Punch line: you don't sanitize the metacharacters — you remove the shell that would interpret them. ~6 min. -->
+
+---
+
 ## Upload → RCE (a classic chain)
 
 The classic *chain*, attacker uploads `shell.php`:
@@ -201,6 +219,11 @@ The classic *chain*, attacker uploads `shell.php`:
 ## One value, three interpreters
 
 ![One untrusted request value reaches three different interpreters — SQL (CWE-89, fixed by a parameterized query), the OS shell (CWE-78, fixed by an argument vector with shell=False), and a filesystem write (CWE-434, fixed by an extension allow-list). One input filter cannot guard three grammars — the fix belongs at the sink that parses the value, not at the source.](img/injection-sinks.svg)
+
+- **SQL** (`WHERE username = <in>`) → parameterized query — bind the value
+- **Shell** (`ping … <in>`) → argument vector + `shell=False` — no shell to parse it
+- **Filesystem** (`save(<in>)`) → extension allow-list + store outside web root
+- One filter can't guard three grammars — **fix at each sink, not at the source**
 
 <!-- Synthesis slide — the SAME untrusted value from request.args/request.files is what feeds all three attacks just covered. Land on the closing line: escaping quotes does nothing to a semicolon in a shell, and a safe filename does nothing to SQL. Sets up "Defenses" as three separate fixes, not one. ~4 min. -->
 
