@@ -9,15 +9,26 @@
 ## Part 1 — Student Information
 | Name | Student ID | Date | Group |
 |---|---|---|---|
-| | | | |
+| Phurinath Janjirahpoonpon | 6631503033 | 15/8/2569 | |
 
 ## Part 2 — Lecture Questions
 Answer in your own words (2–4 sentences each).
 1. Define the CIA triad and give one concrete failure example for each of the three properties.
+    Ans.  Confidentiality(Only the right people can read it) ex. An attacker reads your medical records without permission, 
+          Integrity(No one can silently change it) ex. Someone secretly changes the price in your shopping cart from $50 to $5, 
+          Availablility(It's there when you need it) ex. Ransomware encrypts every file on a hospital's server
 2. What is a *trust boundary*, and why does data crossing one deserve extra scrutiny?
+    Ans.  A line in a system's architecture where the level of trust changes & Almost all major software vulnerabilities 
+          happen when data crosses from a lower zone into a higher-trust execution context without sanitization
 3. Explain "attack surface." Name two things that increase it in a web app.
+    Ans.  Every input an attacker can reach to exploit a vulnerability 
+          1) Exposing Unnecessary or Legacy API Endpoints 2) Integrating Third-Party Libraries and Plugins
 4. What does each STRIDE letter map to, and which security property does each threat violate?
+    Ans.  Spoofing(Authenticity), Tampering(Integrity), Repudiation(Non-Repudiation), Information Disclosure(Confidentiality),
+          Denial of Service(Availability)
 5. What does "Secure by Design" (CISA) mean, and how does it differ from bolting security on after release?
+    Ans.  Vendors must engineer security into software from the start, making products safe by default
+          CISA: Proactively engineers security into software architecture & Bolting: Reactively adds external controls and patches post-release
 
 ## Part 3 — Hands-on Lab (180 min)
 **Learning goals:** build a data-flow diagram (DFD), apply STRIDE to a real Flask app, rank risks, and propose mitigations.
