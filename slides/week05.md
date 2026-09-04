@@ -98,6 +98,33 @@ xss-context
 
 ---
 
+## The fix: encode on output — data renders as text
+
+```python
+# vulnerable: raw value concatenated into HTML -> <script> is parsed as a tag
+html = "<h1>Hello, " + name + "!</h1>"
+
+# fixed: escape() for the HTML context -> < becomes &lt;, shown as text
+html = "<h1>Hello, " + str(escape(name)) + "!</h1>"
+# stored comments: Jinja autoescaping renders {{ c }} as text, not markup
+```
+
+- The bug is on **output** — storing `<script>` is fine; rendering it unescaped is not
+- `escape()` turns `<` into `&lt;` — the parser reads an **entity (text)**, never a tag-start
+- Encode for the **context** (HTML / attribute / JS / URL); CSP + HttpOnly are extra layers
+
+<!-- Parallel to Wk4's parameterize slide and Wk6's verify-signature slide. Same shape as SQLi but on the way OUT: the < is the pivot (like ' in SQL), and escaping makes it an entity the HTML parser treats as text, so the script is shown, not run. Stress: this is an OUTPUT bug — the same stored comment is safe once rendered with autoescaping. And escaping is context-dependent (the sim's point): escape for HTML body != attribute != JS != URL. CSP and HttpOnly reduce blast radius but are not the fix — in this lab escaping kills the payload before CSP would ever fire. ~6 min. -->
+
+---
+
+## XSS in one picture
+
+![Three versions of the /hello page: normal input you renders as text; injected <script>alert(1)</script> makes the browser parse a real script tag and run it in the site's origin; and the escaped version &lt;script&gt;... is read as an HTML entity so the browser shows the characters and runs nothing. XSS is an output bug — encode for the context so < can never start a tag.](img/xss-escape-breakout.svg)
+
+<!-- Consolidation slide — leave it up during XSS Golf. All three states at once: blue = text/data, orange = the < that became a live tag. Point at the orange <script> in row 2 ('one character, and it runs'), then the blue &lt; in row 3 ('an entity — the parser shows it, never runs it'). Same story the xss-context sim animates live across the four sinks. ~3 min. -->
+
+---
+
 ## CSRF — riding the user's session
 
 - Browser auto-sends cookies → attacker forges a state-changing request
