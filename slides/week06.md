@@ -91,6 +91,14 @@ jwt.decode(token, SECRET, algorithms=["HS256"],
 
 ---
 
+## JWT forgery in one picture
+
+![A JWT is header.payload.signature in base64url: the header and payload are readable and editable by anyone, only the signature is a seal. Two forgeries: alg:none sets an empty signature and a vulnerable server skips the check and accepts sub:admin; a weak secret lets the attacker re-sign sub:admin so the signature verifies. The fix pins algorithms to HS256, uses a strong secret, and requires exp and aud, so both forged tokens return 401 — and because the check lives in current_user it covers every endpoint at once.](img/jwt-signed-not-sealed.svg)
+
+<!-- Consolidation slide — leave it up during the JWT Forgery lab. It shows the whole story: the payload is always readable (blue), so the bug is never 'they saw the data' — it's a signature that wasn't verified. Point at the orange empty signature (alg:none) and the orange HMAC(secret) (weak key), then the blue fix line: pin HS256, strong secret, require exp+aud. Same story the jwt-forge sim animates live. Land the punch line: signed, not sealed. ~3 min. -->
+
+---
+
 ## OAuth2 / OIDC (high level)
 
 - Delegated access via tokens — don't share passwords
