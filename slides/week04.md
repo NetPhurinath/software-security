@@ -113,6 +113,14 @@ db.execute("...WHERE username = ? AND password = ?", (user, pw))
 
 ---
 
+## SQLi in one picture — break-out vs. bound value
+
+![Three SQL login queries stacked: normal input sits inside the string as data; the injected username alice'-- makes the user's quote close the string and -- comment out the password check so it logs in with no password; and the parameterised version binds alice'-- into a ? placeholder as pure data so the quote and dashes are inert and login fails.](img/sqli-parse-breakout.svg)
+
+<!-- The consolidation slide — leave it up while students work Task 1. It shows all three states at once (normal / injected / parameterised) with the token colours: blue = value/data, orange = attacker chars that became code, struck-through grey = the check that no longer runs. Point at the orange ' in row 2 — 'that one character is the whole bug' — then the ? in row 3 — 'the value can't reach the grammar'. Same picture the sqli-parse sim animates live. ~3 min. -->
+
+---
+
 ## Real-world impact
 
 - **Equifax (2017):** unvalidated HTTP header → Struts RCE (CVE-2017-5638); 147M people, ~$700M settlement
