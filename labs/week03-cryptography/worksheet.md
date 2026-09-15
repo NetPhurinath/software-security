@@ -9,15 +9,25 @@
 ## Part 1 — Student Information
 | Name | Student ID | Date | Group |
 |---|---|---|---|
-| | | | |
+| Phurinath Janjirahpoonpon | 6631503033 | 15/9/26 | |
 
 ## Part 2 — Lecture Questions
 Answer in your own words (2–4 sentences each).
 1. Distinguish hashing, encryption, and encoding — and give one job each is the wrong tool for.
+Ans.  Hashing, encryption, and encoding are different: hashing is one-way and used to 
+  verify data, encryption protects data so it can be decrypted with a key, and encoding changes data into another format for compatibility. Hashing is the wrong tool for recovering original data, encryption is the wrong tool for making data smaller, and encoding is the wrong tool for protecting passwords or secrets.
 2. Why is a fast hash like MD5/SHA-1 a bad choice for storing passwords, and what should be used instead?
+Ans.  MD5 and SHA-1 are too fast, so attackers can try huge numbers of password guesses 
+  very quickly. Passwords should instead be stored using slow, password-specific hashing such as Argon2id, bcrypt, or scrypt.
 3. What is a salt, what attack does it defeat, and why must it be unique per password?
+Ans.  A salt is a random value added to a password before hashing. It helps defeat 
+  rainbow-table and precomputed attacks. Each password needs a unique salt so that users with the same password do not produce the same hash.
 4. Why does AES-ECB leak structure, and what does an authenticated mode like AES-GCM add?
+Ans.  AES-ECB encrypts each identical block in the same way, so repeated patterns in the 
+  original data can still appear in the ciphertext. AES-GCM provides encryption plus authentication, meaning it helps keep data secret and detects if the encrypted data has been modified.
 5. What's the difference between `random` and a CSPRNG (e.g. `secrets`), and where does it matter?
+Ans.  random is designed for normal programs and is not secure for unpredictable values, 
+  while secrets uses a cryptographically secure random number generator (CSPRNG). A CSPRNG matters when generating passwords, tokens, session IDs, reset links, or encryption keys, where attackers must not be able to predict the values.
 
 ![Four paired rows showing that password storage, cipher mode, randomness and key source are four separate crypto decisions: MD5 (CWE-916/327) becomes argon2id, AES-ECB with a hardcoded key (CWE-327) becomes AES-GCM with a nonce and tag, a 6-digit random.choice token (CWE-330) becomes secrets.token_urlsafe, and HARDCODED_KEY (CWE-798) becomes a key injected from the environment — so naming AES answers none of the four questions.](img/crypto-misuse.svg)
 
@@ -38,33 +48,59 @@ Targets: `vulnerable_crypto.py` (the misuses), `hashes.txt` (four unsalted MD5s)
 **What to submit per task:** the command/payload run + a screenshot of the result + a 2–3 sentence mitigation.
 
 **Task 0 — Onboarding (5 min)** · *Goal:* see the misuse output. *Steps:* run `python vulnerable_crypto.py`; note the md5 digest, the identical ECB ciphertext blocks, and the short token. *Deliverable:* screenshot of the program output.
+Ans.  ![alt text](image.png)
 
 **Task 1 — Capture the Hash (30 min)** · *Goal:* recover the passwords. *Steps:* strip the comment lines from `hashes.txt`, then run `hashcat -m 0 hashes.txt rockyou.txt` (or the `john --format=raw-md5` equivalent); recover all four plaintexts. *Deliverable:* screenshot of the cracked results (mask any real-looking value). Note in one line why unsalted MD5 fell so fast (CWE-916/327).
+Ans.  ![alt text](image-1.png) ![alt text](image-2.png) ![alt text](image-3.png)
+  Unsalted MD5 is fast and unsalted, making dictionary and brute-force attacks easy (CWE-916/CWE-327).
 
 ```sim
 aes-modes
 ```
 
 **Task 2 — ECB structure leak (20 min)** · *Goal:* prove ECB leaks. *Steps:* call `encrypt_ecb(b"A"*16 + b"A"*16)` from `vulnerable_crypto.py` and show the two 16-byte ciphertext blocks are identical; explain how this leaks plaintext structure (CWE-327). *Deliverable:* hex output highlighting the repeated block.
+Ans.  ![alt text](image-4.png)
 
 **Task 3 — Predictable token (15 min)** · *Goal:* show the reset token is guessable. *Steps:* call `reset_token()` repeatedly; argue why a 6-digit `random` token (10^6 space, non-CSPRNG) is brute-forceable (CWE-330). *Deliverable:* sample tokens + a one-line attack estimate.
+Ans.  ![alt text](image-5.png) 
+  A 6-digit token has only 1,000,000 possibilities, making it easy to brute-force (CWE-330).
 
 **Task 4 — Hardcoded key (5 min)** · *Goal:* identify the key-management flaw. *Steps:* find `HARDCODED_KEY` in `vulnerable_crypto.py`; explain why shipping a key in source is CWE-798. *Deliverable:* the line + a 2-sentence mitigation.
+Ans.  ![alt text](image-6.png) 
+      Store keys in a secure secrets manager, not source code, and rotate exposed keys.
 
 **Task 5 — Crack the project target's hashes (25 min)** · *Goal:* apply cracking to your term project. *Steps:* **NoteVault** stores unsalted MD5 password hashes; obtain them (via the app's `/admin` once you can reach it, or from its `seed()`), and crack them with `hashcat -m 0`. *Deliverable:* the recovered password(s) + note the CWE — record this finding for your project report (`project/REPORT-TEMPLATE.md` in the repo root).
 
 **Task 6 — Password storage migration (25 min)** · *Goal:* fix it the way real apps do. *Steps:* write `store_password`/`verify_password` with **argon2id**, and a **rehash-on-login** path that upgrades a legacy MD5 record to argon2id the next time the user logs in. *Deliverable:* the code + a short note on why migration matters.
+Ans.  ![alt text](image-7.png) Because Rehashing during login seamlessly upgrades irreversible MD5 hashes to Argon2id without requiring frustrating password resets.
 
 **Task 7 — Authenticated encryption round-trip (20 min)** · *Goal:* use AEAD correctly. *Steps:* encrypt+decrypt a message with **AES-GCM** using a random 12-byte nonce and a key from an env var; then flip one ciphertext byte and show decryption **fails** (tag check). *Deliverable:* the round-trip output + the tampered-fails proof.
+Ans.  ![alt text](image-8.png)
 
 **Task 8 — TLS in practice (15 min)** · *Goal:* read a real cert. *Steps:* run `openssl s_client -connect example.com:443 </dev/null 2>/dev/null | tee /tmp/tls.txt | openssl x509 -noout -issuer -subject -dates` for the cert summary, then `grep -E 'Protocol|New,' /tmp/tls.txt` for the negotiated TLS version (the version line is printed by `s_client`, not by `x509`, so the plain pipe would discard it); identify issuer, validity, and that TLS version. *Deliverable:* the cert summary + one line on what TLS protects that hashing/at-rest encryption does not.
+Ans.  ![alt text](image-9.png) 
+      TLS protects data in transit across networks, whereas hashing and encryption protect 
+    permanently stored data.
 
 **Task 9 — Defend / fix it (20 min)** · *Goal:* remediate using `solution_skeleton.py`. *Steps:* run `python solution_skeleton.py`; confirm `store_password`/`verify_password` use argon2id (auto-salted), `encrypt_gcm` uses a random 12-byte nonce + auth tag with a key from `ENC_KEY_HEX` env, and `reset_token` uses `secrets`. Map each fix to the CWE it closes. *Deliverable:* before/after table (misuse → fix → CWE closed) + screenshot of the fixed script running.
+Ans.  ![alt text](image-10.png) ![alt text](image-11.png)
 
 ## Part 4 — Reflection
 1. Map each of the four misuses to its CWE and to OWASP A04, in one line each.
+Ans.  1) MD5 Passwords: CWE-759 (No Salt) / CWE-916 (Weak Hash) → Maps to OWASP A04 
+  (Insecure Design/Cryptographic Failures).
+      2) Unauthenticated Encryption: CWE-353 (Missing Integrity Check) → Maps to OWASP A04.
+      3) Weak Token Generation: CWE-338 (Weak PRNG) → Maps to OWASP A04.
+      4)Hardcoded Encryption Keys: CWE-798 (Hardcoded Credentials) → Maps to OWASP A04.
 2. Name a real-world breach caused by weak password hashing or hardcoded keys, and which fix here would have prevented it.
+Ans.  The Breach: The 2012 LinkedIn data breach.
+      The Cause: Millions of user passwords were stolen and easily cracked because they 
+    were stored as unsalted SHA-1 hashes.
+      The Fix: Our Argon2id implementation (which automatically salts and requires high
+    computational effort) would have rendered the stolen password database virtually uncrackable.
 3. Across all four fixes, which closes the largest real-world risk, and why?
+Ans.  Migrating to Argon2id password hashing. Because, weak hashing enables credential 
+  stuffing, compromising users across other platforms (like email and banking) due to widespread password reuse.
 
 ## Grading rubric (100)
 | Criterion | Points |
