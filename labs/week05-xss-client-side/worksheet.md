@@ -10,17 +10,27 @@
 
 | Name | Student ID | Date | Group |
 |------|-----------|------|-------|
-|      |           |      |       |
+| Phurinath Janjirahpoonpon | 6631503033 | 16/9/26 | Let me eat |
 
 ## Part 2 — Lecture Questions
 
 Answer in 2–4 sentences each.
 
 1. Distinguish **reflected**, **stored**, and **DOM-based** XSS by *where* the untrusted data is injected and *when* it executes. Which two does our `vulnerable_app.py` implement, and at which routes?
+Ans.  Reflected XSS executes instantly from the request. Stored XSS saves malicious data to 
+    execute later. DOM-based XSS executes within the browser's DOM. I cannot see your vulnerable_app.py file.
 2. How does **contextual output encoding** (`markupsafe.escape`) stop `<script>` from executing? Why is HTML-context encoding different from JavaScript- or URL-context encoding?
+Ans.  Contextual encoding turns characters into harmless text, preventing execution. 
+    Different contexts require unique encoding because browsers parse HTML, JavaScript, and URLs using entirely different syntax rules.
 3. Explain how a strict **Content-Security-Policy** (`script-src 'self'`) defeats an *injected* inline script even when encoding is missing.
+Ans.  A strict CSP tells the browser to execute scripts only from trusted domains. It 
+    defeats injected inline scripts by refusing to run any unauthorized foreign code.
 4. What do the cookie flags **HttpOnly**, **SameSite**, and **Secure** each protect against? Map each to a concrete attack (cookie theft via XSS, CSRF, network sniffing).
+Ans.  HttpOnly prevents script access, stopping XSS cookie theft. SameSite restricts 
+    cross-site sending, directly mitigating CSRF attacks. Secure ensures encrypted HTTPS transmission, preventing network sniffing.
 5. Why does **CSRF** (CWE-352) work even without any script injection, and how does `SameSite=Strict` plus the same-origin policy blunt it?
+Ans.  CSRF tricks browsers into sending legitimate, authenticated requests automatically. 
+    SameSite=Strict and the same-origin policy prevent this by totally blocking cookies in cross-site network requests.
 
 ## Part 3 — Hands-on Lab (150 min)
 
@@ -47,21 +57,30 @@ docker run --rm -p 3000:3000 bkimminich/juice-shop       # -> http://localhost:3
 ---
 
 **Task 0 — Onboarding (5 min).** Browse `http://localhost:8080/`. Open DevTools → Application → Cookies and confirm `session=abc123` is set with **no HttpOnly / SameSite**. Screenshot it. *Deliverable: screenshot.*
+Ans.  ![alt text](image.png)
 
 **Task 1 — Reflected XSS + XSS Golf (30 min) ⛳.**
 - *Goal:* execute JS via `/hello`, then minimize the payload.
 - *Steps:* visit `/hello?name=<script>alert(1)</script>`, then the alternate `/hello?name=<img src=x onerror=alert(1)>` (useful when `<script>` tags specifically are filtered — note it's actually 3 characters longer, not shorter). Record each payload's character count for your golf score.
 - *Deliverable:* both payloads + char counts + screenshot of `alert(1)` + your lowest score.
+Ans.  <script>alert(1)</script> 25, <img src=x onerror=alert(1)> 28,  
+      ![alt text](image-1.png), <svg onload=alert(1)> 20 
 
 **Task 2 — Stored XSS (30 min) ⛳.**
 - *Goal:* persist a script that runs for every visitor of `/comments`.
 - *Steps:* POST a comment with body `<script>alert(document.cookie)</script>` (use the form or `curl -d 'body=...'`). Reload `/comments` and watch the cookie pop.
 - *Deliverable:* payload + screenshot of the alert showing `session=abc123` + why stored XSS is more dangerous than reflected.
+Ans.  ![alt text](image-2.png) 
+      Stored XSS saves the malicious script directly on the application's server. It 
+    automatically attacks every user who visits the infected page, requiring zero social engineering, whereas Reflected XSS requires tricking a victim into clicking a specially crafted malicious link.
 
 **Task 3 — Cookie theft via XSS (25 min).**
 - *Goal:* show the cookie is readable by injected JS because **HttpOnly is missing** (CWE-1004).
 - *Steps:* store `<script>new Image().src='http://localhost:8080/hello?name='+document.cookie</script>` (a beacon), or simply `<img src=x onerror=alert(document.cookie)>`. Observe the cookie value being exfiltrated/displayed.
 - *Deliverable:* payload + screenshot + 2–3 sentences on how HttpOnly would have stopped this.
+Ans.  ![alt text](image-3.png) 
+      The HttpOnly flag instructs the browser to block client-side scripts from accessing 
+    cookies. If injected JavaScript attempts to read document.cookie, it returns empty. This prevents attackers from stealing session tokens via XSS, even if they successfully execute malicious code.
 
 **Task 4 — CSRF PoC (30 min).**
 - *Goal:* make a third-party page force a state-changing POST to `/comments`.
@@ -75,6 +94,9 @@ docker run --rm -p 3000:3000 bkimminich/juice-shop       # -> http://localhost:3
   ```
   Open the file and confirm the comment appears on `/comments`.
 - *Deliverable:* the HTML + screenshot of the forged comment + why `SameSite=Strict` blocks it.
+Ans.  ![alt text](image-4.png) 
+      The SameSite=Strict flag instructs the browser to never send cookies with cross-site 
+    requests. If the attacker's csrf.html submits the form, the browser strips the session cookie from the request. The server receives an unauthenticated request and rejects it, completely blocking the CSRF attack.
 
 ```sim
 xss-context
@@ -88,12 +110,22 @@ xss-context
   ```
   Re-fire each payload. Expected: `/hello` renders the script **as text** (escape, L21), stored comments render literally (Jinja autoescape, L30–33), a strict CSP header is now present as defense-in-depth (`Content-Security-Policy: script-src 'self'`, L12 — check DevTools → Network → Response Headers; escaping already neutralizes these payloads, so no CSP *violation* fires in the console), and the cookie now has `HttpOnly; SameSite=Strict; Secure` (L42). Then re-run Task 4's `csrf.html` PoC against `fixed_app.py`: it **still posts the forged comment** — `/comments` (L25–28) never checks the `session` cookie or a CSRF token before accepting a POST, so hardening the cookie only stops the browser from *attaching* it cross-site; it doesn't stop the request itself from being processed.
 - *Deliverable:* screenshots of escaped output + the CSP response header + the hardened cookie flags + the still-successful Task 4 forgery against `fixed_app.py`, with 2–3 sentences on why cookie hardening alone doesn't close CSRF here (no server-side check tied to the cookie, and no CSRF token).
+Ans.  ![alt text](image-6.png) ![alt text](image-5.png), ![alt text](image-7.png),
+      ![alt text](image-8.png), ![alt text](image-9.png),
+      Although SameSite=Strict successfully prevents the browser from sending the session 
+    cookie cross-site, the attack still works because the server's /comments endpoint never actually requires the user to be authenticated. The server blindly accepts the POST request data and creates the comment without checking for a valid session cookie or a CSRF anti-forgery token.
 
 ## Part 4 — Reflection
 
 1. **CWE/OWASP mapping:** map your reflected/stored XSS to **CWE-79** and your CSRF PoC to **CWE-352**, both under OWASP 2025 **A05 Injection** (CSRF historically A01/A05).
+Ans.  Reflected and stored XSS map directly to CWE-79, while the CSRF PoC maps to CWE-352. 
+    Both of these vulnerabilities fall under the OWASP 2025 A05 Injection category.
 2. **Real breach:** the **2018 British Airways breach** (~380k payment records) used malicious JavaScript (Magecart) injected into the site to skim card data — a client-side script-injection failure. In 3–4 sentences relate it to this lab's XSS and CSP lessons.
+Ans.  The 2018 British Airways breach used injected JavaScript to steal customer data. Like
+     our XSS lab, poor input handling enabled the attack. A strict CSP would have blocked these malicious scripts.
 3. **Best mitigation:** between output encoding, a strict CSP, and HttpOnly+SameSite cookies, which gives the broadest defense-in-depth, and why is "encoding alone" still risky?
+Ans.  A strict CSP provides the broadest defense-in-depth by completely blocking 
+    unauthorized script execution. Encoding alone remains risky because forgetting to escape just one single input leaves the application vulnerable.
 
 ## Grading rubric (100)
 
