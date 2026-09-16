@@ -10,17 +10,27 @@
 
 | Name | Student ID | Date | Group |
 |------|-----------|------|-------|
-|      |           |      |       |
+| Phurinath | 6631503033 | 16/9/26 | Let me eat |
 
 ## Part 2 — Lecture Questions
 
 Answer in 2–4 sentences each.
 
 1. Why does a **parameterized query** (`execute(sql, (params,))`) defeat SQL injection, while string formatting (`"... '%s'" % user`) does not? Reference how the database treats data vs. code.
+Ans.  String formatting blindly pastes input into SQL commands. Parameterized queries send 
+  code and data separately, forcing the database to treat user input as harmless literal values, preventing injection attacks.
 2. In the `/ping` endpoint, `subprocess.run("ping -c 1 " + host, shell=True)` is vulnerable. Explain how `shell=True` turns user input into **CWE-78**, and how an argument array (`["ping","-c","1",host]`) removes the shell.
+Ans.  shell=True passes input to a shell, allowing metacharacters like ; to run malicious 
+  commands. An argument array bypasses the shell entirely, safely treating user input as literal arguments.
 3. Distinguish **input validation** (allow-list) from **output handling**. Why is validation alone insufficient defense for SQLi?
+Ans.  Input validation restricts formats, while output handling securely structures data 
+  for sinks. Validation alone fails because valid inputs, like "O'Brian", can still break SQL syntax if not parameterized.
 4. The `/upload` route saves any filename to disk (**CWE-434**). What two properties must a directory and a filename have for an upload to become remote code execution, and which does `solution_app.py` remove?
+Ans.  For RCE, an uploaded file needs a web-accessible directory and an executable 
+  extension. Secure solutions prevent this by enforcing strict allow-lists for file extensions and stripping dangerous filename characters.
 5. What is a **UNION-based** SQLi, and why must the injected `SELECT` return the same number of columns as the original query? Relate to `/search?q=' UNION SELECT username,password FROM users--`.
+Ans.  UNION injections append malicious results to legitimate output. SQL requires 
+  identical schemas for a UNION, so the injected query must request the exact same number of columns to execute.
 
 ![One untrusted request value in the Week 4 lab fans out to three interpreters — the SQL engine (CWE-89), the OS shell (CWE-78) and the filesystem (CWE-434) — with the specific control that stops it at each sink: a parameterised query, an argument vector without a shell, and an extension allow-list.](img/injection-sinks.svg)
 
@@ -48,6 +58,7 @@ docker run --rm -p 3000:3000 bkimminich/juice-shop       # Juice Shop -> http://
 ---
 
 **Task 0 — Onboarding (5 min).** Browse to `http://localhost:8080/login?user=alice&pw=alicepw` and confirm `Welcome alice`. Note the seeded users (`alice`, `bob`). Screenshot the working app. *Deliverable: screenshot.*
+Ans.  ![alt text](image.png) 
 
 **Before you start — see why concatenation is the flaw** 🔬 Type any input and watch which characters the database will parse as *SQL* rather than as a name. The point is not the payload; it is that with concatenation the input becomes syntax, and with a parameterised query it structurally cannot. You will be asked to state that difference in your own words in Task 5.
 
@@ -59,21 +70,35 @@ sqli-parse
 - *Goal:* log in as `alice` with **no valid password**.
 - *Steps:* hit `/login?user=alice'--&pw=x`, then `/login?user=x' OR '1'='1'--&pw=x` (the trailing `--` is required: without it, SQL binds `AND` tighter than `OR`, so `... OR '1'='1' AND password='x'` matches no row). Observe the comment in the query at lines 61–63 of `vulnerable_app.py`.
 - *Deliverable:* both URLs + screenshot of `Welcome alice` + explain why `--` and `OR '1'='1` work.
+Ans.  ![alt text](image-1.png) ![alt text](image-2.png)
+      The -- symbol creates a comment in SQL, telling the database to completely ignore the 
+    required password check.
+      OR '1'='1' creates an always-true condition, bypassing the specific username check 
+    and logging you into the first available account.
 
 **Task 2 — Credential dump via UNION SQLi (30 min) 🐉 Hit #2.**
 - *Goal:* exfiltrate every username **and password** from the `users` table.
 - *Steps:* request `/search?q=' UNION SELECT username,password FROM users--`. Confirm `alice:alicepw` and `bob:bobpw` appear.
 - *Deliverable:* payload + screenshot of dumped credentials + note on why column count must match.
+Ans.  ![alt text](image-3.png) 
+      UNION merges two separate queries into a single table. SQL requires both queries to 
+    have the exact same number of columns; otherwise, the database cannot align the data rows and throws an error.
 
 **Task 3 — OS command injection (30 min) 🐉 Hit #3.**
 - *Goal:* run an arbitrary command through `/ping`.
 - *Steps:* request `/ping?host=127.0.0.1;id` then `/ping?host=$(whoami)` (URL-encode if needed). Capture the injected command's output.
 - *Deliverable:* both payloads + screenshot of `id`/`whoami` output + explanation of the `shell=True` flaw (CWE-78).
+Ans.  ![alt text](image-4.png) ![alt text](image-5.png)
+      shell=True passes input directly into the system shell. Without input sanitization, 
+    attackers can inject and execute arbitrary system commands using special characters like ; or $(), causing complete system compromise.
 
 **Task 4 — Unrestricted upload (25 min) 🐉 Hit #4.**
 - *Goal:* show the upload accepts a dangerous file type with no checks (CWE-434).
 - *Steps:* `GET /upload` (form), then upload a file named `shell.py`. Confirm `saved to /tmp/uploads/shell.py`. Discuss: if `UPLOAD_DIR` were web-served or executed, this is the RCE chain (here the dir is **not** served, so document the missing control rather than claiming auto-RCE).
 - *Deliverable:* upload command/screenshot + 2–3 sentences on why extension allow-listing matters.
+Ans.  ![alt text](image-6.png) 
+      Allow-listing restricts uploads to safe formats. Without it, attackers can upload 
+    malicious scripts like .py. If the server executes or serves them, it causes Remote Code Execution and system compromise.
 
 **Task 5 — Defend / fix it (35 min) 🛡️ Boss defeated.**
 - *Goal:* prove `solution_app.py` blocks Tasks 1–4.
@@ -83,12 +108,30 @@ sqli-parse
   ```
   Re-fire each payload from Tasks 1–4. Expected: `Login failed`, no credential dump, `invalid host` (400) on `127.0.0.1;id`, and `file type not allowed` for `shell.py`.
 - *Deliverable:* screenshots of all four failures + name the fix line for each (parameterized query L52–55 login / L62–66 search, `shell=False`+regex L74–77, `secure_filename`+allow-list L86–93).
+Ans.  ![alt text](image-7.png) ![alt text](image-8.png) ![alt text](image-9.png) 
+    ![alt text](image-10.png)
+      Task 1 Fix (Auth Bypass)
+    Parameterized queries at lines 52–55. This separates user input from the SQL structure, preventing the -- and OR payloads from being executed as code.
+      Task 2 Fix (UNION Dump)
+    Parameterized queries at lines 62–66. This structurally blocks the UNION SELECT syntax from modifying the original search query.
+      Task 3 Fix (Command Injection)
+    Regex validation and setting shell=False at lines 74–77. This strictly validates the IP format and prevents the system from interpreting shell operators like ; or $().
+      Task 4 Fix (Unrestricted Upload)
+    Implementing an extension allow-list and secure_filename() at lines 86–93. This rejects dangerous extensions like .py and sanitizes the filename before saving.
 
 ## Part 4 — Reflection
 
 1. **CWE/OWASP mapping:** map each of your four exploits to its CWE (89/78/434) and to OWASP 2025 **A05 Injection**.
+Ans.  Auth Bypass: CWE-89 (SQL Injection) > OWASP 2025 A05: Injection
+      Credential Dump: CWE-89 (SQL Injection) > OWASP 2025 A05: Injection
+      Command Injection: CWE-78 (OS Command Injection) > OWASP 2025 A05: Injection
+      Unrestricted Upload: CWE-434 (Dangerous File Upload) > OWASP 2025 A05: Injection
 2. **Real breach:** the **2017 Equifax breach** exposed ~147M people after attackers exploited a known input-handling flaw (Apache Struts CVE-2017-5638). In 3–4 sentences, connect that failure to the lessons in this lab (untrusted input reaching a powerful interpreter; the cost of an unpatched/unvalidated input path).
+Ans.  The Equifax breach happened because unvalidated input reached a powerful backend 
+    interpreter. Like this lab, failing to sanitize untrusted data allowed attackers to execute malicious code, causing massive data theft.
 3. **Best mitigation:** of parameterized queries, allow-list validation, least privilege, and avoiding `shell=True`, which single control would have prevented the most damage in this lab, and why?
+Ans.  Parameterized queries prevented the most damage. By separating data from code, they 
+    neutralized both SQL injection attacks, protecting the database—the application's most critical asset.
 
 ## Grading rubric (100)
 
