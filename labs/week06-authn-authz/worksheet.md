@@ -10,7 +10,7 @@
 
 | Name | Student ID | Date | Group |
 |------|-----------|------|-------|
-|      |           |      |       |
+| Phurinath Janjirahpoonpon | 6631503033 | 18/9/26 | Let me eat |
 
 ![Diagram of one request passing two gates: Gate 1 authentication accepts an alg:none forgery, a weak-secret forgery, and alice's real token, then Gate 2 authorization fails to check ownership so alice's valid token reads bob's /api/orders/2 as IDOR, with the solution_app.py fixes for both.](img/authn-vs-authz.svg)
 
@@ -19,10 +19,20 @@
 Answer in 2–4 sentences each.
 
 1. Distinguish **authentication** from **authorization**. In `vulnerable_app.py`, `get_order` calls `current_user()` but ignores its result (L63) — which of the two is missing?
+Ans.  Authentication verifies who you are, while authorization checks what you can do. By 
+    ignoring the current user, the app lacks authorization, allowing anyone to access the resource.
 2. What is **IDOR** (CWE-639)? Why is `/api/orders/<oid>` exploitable, and what single check in `solution_app.py` (L64) closes it?
+Ans.  IDOR occurs when users access others' data by guessing object IDs. The route is 
+    vulnerable because it trusts the ID. The fix verifies the order belongs to the user.
 3. Explain the **`alg:none`** JWT attack. Why does listing `"none"` in `algorithms=[...]` (L55) let an attacker submit an *unsigned* token?
+Ans.  The alg:none attack tricks servers into accepting unsigned tokens. Listing "none" as 
+    a valid algorithm tells the verifier to skip checking the signature, granting attackers full control.
 4. Why is the hardcoded HMAC secret `"secret"` (CWE-321) dangerous even if `alg:none` were disabled? How does a strong random secret + pinned algorithm defend the token?
+Ans.  A hardcoded secret allows anyone to forge validly signed tokens. A strong random 
+    secret combined with a fixed algorithm ensures only the server can issue and verify tokens.
 5. What do the JWT claims **`exp`** and **`aud`** add, and why does the secure version reject tokens that lack them?
+Ans.  The exp claim sets an expiration time, and aud restricts the token's intended 
+    audience. Requiring them prevents attackers from endlessly replaying stolen or misdirected tokens.
 
 ## Part 3 — Hands-on Lab (150 min)
 
@@ -60,6 +70,7 @@ TOKEN=$(curl -s -X POST http://localhost:8080/login \
 echo "$TOKEN"
 ```
 Confirm `/api/orders/1` returns alice's Laptop order. *Deliverable: screenshot of the token + order 1.*
+Ans.  ![alt text](image.png)
 
 **Task 1 — IDOR Treasure Hunt (30 min) 🗺️.**
 - *Goal:* read **bob's** order with **alice's** token.
@@ -69,6 +80,9 @@ Confirm `/api/orders/1` returns alice's Laptop order. *Deliverable: screenshot o
   curl -s http://localhost:8080/api/orders/2 -H "Authorization: Bearer $TOKEN"   # bob's — leaks!
   ```
 - *Deliverable:* both responses + screenshot of bob's `Phone` order + why the missing ownership check (CWE-639) is the root cause.
+Ans.  ![alt text](image-1.png)
+      The app authenticates Alice but skips authorization. It fetches order 2 based solely 
+    on user input without checking if Alice actually owns it. This missing ownership verification creates an IDOR vulnerability, allowing Alice to read Bob's data.
 
 ```sim
 jwt-forge
@@ -86,6 +100,9 @@ jwt-forge
   curl -s http://localhost:8080/api/orders/2 -H "Authorization: Bearer $FORGED"
   ```
 - *Deliverable:* the forged token + screenshot of the accepted response + explanation of the `none` flaw (CWE-347).
+Ans.  ![alt text](image-2.png)
+      The alg:none flaw occurs when a server accepts tokens without cryptographic 
+    signatures. Attackers bypass authentication by setting the algorithm header to "none" and leaving the signature blank, allowing them to trivially forge the payload and impersonate any user.
 
 **Task 3 — JWT Forgery via weak secret (30 min) 🔏.**
 - *Goal:* sign a *valid* HS256 token because the secret is the guessable string `secret` (CWE-321).
@@ -99,12 +116,18 @@ jwt-forge
   curl -s http://localhost:8080/api/orders/2 -H "Authorization: Bearer $FORGED2"
   ```
 - *Deliverable:* token + screenshot + 2–3 sentences on why secret strength + key management matter.
+Ans.  ![alt text](image-3.png)
+      A weak or hardcoded secret allows attackers to guess the key and forge valid tokens,
+    completely bypassing authentication. Using strong, randomly generated secrets stored securely—such as in key vaults rather than source code—ensures only the legitimate server can issue and verify trust.
 
 **Task 4 — Privilege/identity escalation reasoning (25 min).**
 - *Goal:* combine the flaws. Using Task 2/3 you became `bob` *without his password*; using Task 1 you read objects you don't own.
 - *Steps:* document the full attack chain (forge token → access any `oid`). Optionally replay the requests through **Burp Suite Repeater** and screenshot the intercepted request/response.
 - *Deliverable:* a short chain diagram/paragraph + Burp (or curl) evidence.
-
+Ans.  1) Identity Spoofing: Attackers forge JWTs via weak secrets or alg:none to impersonate users without needing passwords.
+      2) Data Exfiltration (IDOR): Without ownership checks, attackers use this forged 
+    identity to request and steal any arbitrary object ID.
+      ![alt text](image-4.png)
 **Task 5 — Defend / fix it (30 min) 🛡️.**
 - *Goal:* prove `solution_app.py` blocks Tasks 1–3.
 - *Steps:* stop the vulnerable container (`Ctrl-C`), then:
@@ -113,12 +136,20 @@ jwt-forge
   ```
   Re-run: get a fresh alice token, then re-fire each attack. Expected: `/api/orders/2` with alice's token → **403 forbidden** (ownership check, L64); the `alg:none` token → **401 invalid token** (algorithm pinned to HS256, L50); the `"secret"` token → **401** (strong random secret + required `aud`/`exp`, L10/40).
 - *Deliverable:* screenshots of the 403 and both 401s + name the fix line for each.
+Ans.  ![alt text](image-5.png)
+      403: Line 64, 401: Line 10,40,50
 
 ## Part 4 — Reflection
 
 1. **CWE/OWASP mapping:** map IDOR → **CWE-639 / A01**, the JWT forgeries → **CWE-347 & CWE-321 / A07**.
+Ans.  IDOR maps to CWE-639 and OWASP A01 (Broken Access Control). JWT forgeries map to 
+    CWE-347 (Improper Signature Verification) and CWE-321 (Hard-coded Key), which both fall under OWASP A07 (Identification and Authentication Failures).
 2. **Real breach:** the **2022 Optus breach** exposed millions of customer records via an exposed/poorly-authorized API endpoint where identifiers could be enumerated — a textbook broken-access-control / IDOR-style failure. In 3–4 sentences connect it to Tasks 1 and 4 of this lab. *(Alternative: the Peloton API IDOR disclosure.)*
+Ans.  The Optus breach exposed records because an API endpoint lacked authorization checks,
+     exactly like Task 1. Similar to Task 4's attack chain, hackers bypassed access controls and enumerated predictable identifiers to systematically steal sensitive customer data.
 3. **Best mitigation:** between deny-by-default ownership checks, pinning the JWT algorithm, and a strong managed secret, which control protects the most attack surface here, and why is server-side authorization non-negotiable?
+Ans.  Deny-by-default ownership checks protect the most surface, stopping data theft even 
+    if authentication completely fails. Server-side authorization is non-negotiable because attackers easily bypass client-side limits; the server alone must strictly verify if a user owns the requested resource.
 
 ## Grading rubric (100)
 
